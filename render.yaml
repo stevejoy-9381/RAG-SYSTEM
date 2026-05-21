@@ -1,0 +1,60 @@
+# render.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+# Render Blueprint — defines your entire deployment in code.
+# Push this to GitHub and Render reads it automatically.
+#
+# HOW TO DEPLOY WITH THIS FILE:
+#   1. Push your project to a GitHub repository
+#   2. Go to dashboard.render.com → "New" → "Blueprint"
+#   3. Connect your GitHub repo
+#   4. Render reads this file and creates the services automatically
+#   5. Set secret env vars in the Render dashboard (GROQ_API_KEY, JWT_SECRET_KEY)
+#
+# WHAT THIS DEPLOYS:
+#   One Web Service (the FastAPI API) with a persistent disk for user data.
+#   The Streamlit frontend deploys separately to Streamlit Community Cloud.
+#   (Render can host both but Streamlit Cloud is free and purpose-built.)
+#
+# FREE TIER NOTE:
+#   Render's free tier spins down after 15 minutes of inactivity.
+#   First request after sleep takes ~30 seconds (cold start).
+#   For a portfolio demo, this is acceptable.
+#   For always-on: upgrade to Render Starter ($7/month).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  - type: web
+    name: docmind-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api   # Path to your API Dockerfile
+    dockerContext: .                   # Build context (project root)
+
+    # Instance type: "free" has 512MB RAM — may be tight for ML models.
+    # Upgrade to "starter" ($7/month) for 512MB → 2GB RAM if needed.
+    plan: free
+
+    # Health check path — Render pings this to verify the service is running
+    healthCheckPath: /health
+
+    # Environment variables set here are non-secret (safe to commit).
+    # SECRET variables (GROQ_API_KEY, JWT_SECRET_KEY) are set in the Render dashboard.
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: LLM_MODEL
+        value: "llama3-8b-8192"
+      - key: LLM_TEMPERATURE
+        value: "0.2"
+      - key: RETRIEVAL_K
+        value: "4"
+      # These are SECRET — set them in the Render dashboard, not here:
+      # GROQ_API_KEY
+      # JWT_SECRET_KEY
+
+    # Persistent disk: stores vectorstore/ so user data survives deploys
+    # Without this, every deploy wipes all uploaded documents and user accounts.
+    # 1 GB is enough for dozens of users with multiple documents each.
+    disk:
+      name: docmind-vectorstore
+      mountPath: /app/vectorstore
+      sizeGB: 1

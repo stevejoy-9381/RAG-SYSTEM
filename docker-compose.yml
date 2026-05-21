@@ -1,0 +1,76 @@
+# docker-compose.yml — Full RAG stack (Phase 5: Next.js frontend)
+# ─────────────────────────────────────────────────────────────────────────────
+# Run everything with:  docker-compose up --build
+#
+# Services:
+#   api      → FastAPI backend    http://localhost:8000
+#   frontend → Next.js frontend   http://localhost:3000
+#
+# Volumes:
+#   vectorstore_data → persists FAISS indices + user data across restarts
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: docmind_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - vectorstore_data:/app/vectorstore
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    restart: unless-stopped
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: docmind_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      # At runtime, Next.js server reads this and passes it to client bundles.
+      # Points to the API service using Docker internal DNS ("api" = service name).
+      # For deployed production: change this to your Render URL.
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # Note: browser calls go through the HOST machine (localhost:8000),
+      # not through Docker's internal network, because Next.js client code
+      # runs in the USER'S BROWSER — not inside the container.
+      # So we expose port 8000 on the host and point the browser there.
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  vectorstore_data:
+    driver: local
+
+networks:
+  rag_network:
+    driver: bridge

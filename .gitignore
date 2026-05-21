@@ -1,0 +1,32 @@
+# ─── Secrets — NEVER commit these ────────────────────────────────────────────
+.env
+
+# ─── Generated vector index — too large, rebuilt on first upload ─────────────
+vectorstore/faiss_index/
+
+# ─── Uploaded documents (user data, not yours to commit) ─────────────────────
+data/*.pdf
+data/*.docx
+data/*.txt
+
+# ─── Python cache ─────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# ─── Virtual environments ─────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ─── IDE files ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.DS_Store
+
+# ─── Streamlit cache ──────────────────────────────────────────────────────────
+.streamlit/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log

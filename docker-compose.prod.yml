@@ -1,0 +1,58 @@
+# docker-compose.prod.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Production overrides — applied ON TOP of docker-compose.yml.
+#
+# HOW TO USE:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# WHAT THIS FILE CHANGES:
+#   - restart: always       → restart even after machine reboot
+#   - log rotation          → prevents log files from filling disk
+#   - no-new-privileges     → security hardening
+#   - deploy.resources      → CPU/memory limits (prevents runaway usage)
+#
+# WHY SEPARATE FROM docker-compose.yml?
+#   Keeps development config clean (no resource limits, easier debugging).
+#   Production config adds hardening without cluttering the dev file.
+#   This pattern is called "compose file layering" — official Docker best practice.
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+
+  api:
+    restart: always    # Restart even after system reboot (vs "unless-stopped")
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"   # Max 10 MB per log file
+        max-file: "3"     # Keep 3 rotated files = max 30 MB total log storage
+    security_opt:
+      - no-new-privileges:true   # Container cannot gain more permissions than it starts with
+    deploy:
+      resources:
+        limits:
+          memory: 4G     # API needs memory for FAISS + embedding model
+          cpus: "2.0"
+        reservations:
+          memory: 1G
+          cpus: "0.5"
+
+  frontend:
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 512M    # Frontend is lightweight — just Streamlit
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.1"

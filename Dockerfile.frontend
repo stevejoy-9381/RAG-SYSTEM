@@ -1,0 +1,46 @@
+# ─── Dockerfile.frontend ─────────────────────────────────────────────────────
+# Builds the Streamlit frontend container.
+#
+# KEY DIFFERENCE FROM Dockerfile.api:
+#   This image is intentionally SMALL.
+#   It installs only Streamlit + requests — no ML libraries at all.
+#   The frontend is purely a UI that calls the API via HTTP.
+#   All heavy computation (embeddings, FAISS, Groq) happens in the API container.
+#
+# RESULT:
+#   API image:      ~2.8 GB  (ML stack is unavoidably large)
+#   Frontend image: ~800 MB  (just Python + Streamlit)
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM python:3.11-slim
+
+# curl needed for health check
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install only frontend dependencies — much faster than the full stack
+COPY requirements.frontend.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.frontend.txt
+
+# Copy only what the frontend needs
+COPY app.py .
+COPY .streamlit/ ./.streamlit/
+
+EXPOSE 8501
+
+# Health check using Streamlit's built-in health endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+
+# ── Start Streamlit ───────────────────────────────────────────────────────────
+# The .streamlit/config.toml already sets headless=true, address, and port.
+# These CMD flags are redundant with config.toml but explicit is better
+# than implicit — easier to understand what's happening.
+CMD ["streamlit", "run", "app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]

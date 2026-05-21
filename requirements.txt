@@ -1,0 +1,42 @@
+# ─── Core LangChain stack ────────────────────────────────────────────────────
+langchain==0.2.16
+langchain-community==0.2.17
+langchain-groq==0.1.9
+
+# ─── Embeddings ───────────────────────────────────────────────────────────────
+sentence-transformers==3.0.1
+
+# ─── Vector store ─────────────────────────────────────────────────────────────
+faiss-cpu==1.8.0.post1
+
+# ─── Hybrid retrieval (Phase 1) ───────────────────────────────────────────────
+rank-bm25==0.2.2
+
+# ─── PDF parsing ──────────────────────────────────────────────────────────────
+pymupdf==1.24.10
+
+# ─── LLM provider ─────────────────────────────────────────────────────────────
+groq==0.11.0
+
+# ─── PHASE 3 NEW: Authentication ─────────────────────────────────────────────
+# python-jose: JWT encoding and decoding (industry standard)
+# [cryptography] installs the RSA/ECDSA backend — needed for HS256
+python-jose[cryptography]==3.3.0
+
+# passlib: password hashing (wraps bcrypt)
+# [bcrypt] installs the fast C bcrypt implementation
+# NEVER store plain-text passwords — bcrypt is the right tool
+passlib[bcrypt]==1.7.4
+
+# ─── Backend ──────────────────────────────────────────────────────────────────
+fastapi==0.114.2
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# ─── Frontend ─────────────────────────────────────────────────────────────────
+streamlit==1.38.0
+requests==2.32.3
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+pydantic==2.9.2

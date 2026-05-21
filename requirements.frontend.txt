@@ -1,0 +1,14 @@
+# ─── requirements.frontend.txt ───────────────────────────────────────────────
+# Used ONLY by Dockerfile.frontend (the Streamlit container).
+# Contains NO ML libraries — the frontend is just a UI that calls the API.
+# This keeps the frontend image small (~800 MB vs ~2.8 GB for the full stack).
+#
+# The frontend only needs:
+#   streamlit  → the UI framework
+#   requests   → to call the FastAPI backend
+#   python-dotenv → to read API_BASE_URL from .env if running locally
+# ─────────────────────────────────────────────────────────────────────────────
+
+streamlit==1.38.0
+requests==2.32.3
+python-dotenv==1.0.1

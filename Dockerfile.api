@@ -1,0 +1,91 @@
+# ─── Dockerfile.api ──────────────────────────────────────────────────────────
+# Builds the FastAPI backend container.
+#
+# BASE IMAGE: python:3.11-slim
+#   "slim" = Debian with only Python + minimal system libraries.
+#   ~130 MB base vs ~1 GB for the full python:3.11 image.
+#   We install only what we need, keeping the final image as lean as possible.
+#
+# BUILD STAGES:
+#   We use a single-stage build here (not multi-stage) because:
+#     - The ML libraries (sentence-transformers, faiss) are needed at runtime
+#     - Multi-stage only saves space if you can exclude build-only tools
+#     - For a portfolio project, single-stage is cleaner and easier to understand
+#
+# EMBEDDING MODEL PRE-DOWNLOAD:
+#   The sentence-transformers model (~90 MB) is downloaded DURING THE BUILD.
+#   This means:
+#     - First `docker build` takes longer (~5 minutes)
+#     - But container startup is instant — no download delay at runtime
+#     - The model is baked into the image layer and cached between restarts
+#   Alternative: mount a volume for ~/.cache/huggingface (model downloads at
+#   first runtime, then cached). We chose bake-in for reliability.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM python:3.11-slim
+
+# ── System dependencies ───────────────────────────────────────────────────────
+# PyMuPDF (pymupdf) uses C extensions that need gcc for compilation.
+# curl is needed for the Docker health check command.
+# --no-install-recommends keeps the layer small.
+# Clean up apt cache in the same RUN layer to reduce image size.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Working directory ─────────────────────────────────────────────────────────
+WORKDIR /app
+
+# ── Install Python dependencies ───────────────────────────────────────────────
+# Copy requirements FIRST (before source code).
+# WHY? Docker layer caching: if requirements.api.txt doesn't change,
+# this expensive layer (pip install) is reused from cache on every rebuild.
+# Only changed source code triggers a fresh pip install if you copy reqs first.
+COPY requirements.api.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.api.txt
+
+# ── Pre-download the embedding model ─────────────────────────────────────────
+# This RUN command triggers the model download and bakes it into the image.
+# The model is cached at /root/.cache/huggingface/ inside the image.
+# Subsequent docker builds use this cached layer (no re-download unless
+# the base image or requirements change).
+RUN python -c "\
+from sentence_transformers import SentenceTransformer; \
+print('Downloading embedding model...'); \
+SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); \
+print('Model downloaded and cached.')"
+
+# ── Copy application source ───────────────────────────────────────────────────
+# Copy source code AFTER pip install so code changes don't invalidate
+# the expensive dependency install cache layer.
+COPY src/ ./src/
+COPY api.py .
+
+# ── Create data directories ───────────────────────────────────────────────────
+# vectorstore/ will be mounted as a Docker volume (persists data).
+# Creating it here ensures it exists even if the volume mount fails.
+RUN mkdir -p vectorstore data
+
+# ── Expose port ───────────────────────────────────────────────────────────────
+EXPOSE 8000
+
+# ── Health check ─────────────────────────────────────────────────────────────
+# Docker uses this to determine if the container is healthy.
+# docker-compose's depends_on with condition: service_healthy waits
+# for this to pass before starting the frontend container.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# ── Start command ─────────────────────────────────────────────────────────────
+# --host 0.0.0.0  → listen on all interfaces (required in containers)
+# --port 8000     → match EXPOSE above
+# --workers 1     → single worker (safe for FAISS in-memory index)
+#
+# WHY NOT --reload?
+#   --reload is for development (auto-restarts on code changes).
+#   In production containers, code is baked in — reload adds overhead.
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

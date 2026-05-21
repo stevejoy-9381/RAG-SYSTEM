@@ -1,0 +1,61 @@
+# .dockerignore
+# ─────────────────────────────────────────────────────────────────────────────
+# Files and directories excluded from the Docker build context.
+#
+# WHY THIS MATTERS:
+#   Docker sends the entire build context to the Docker daemon before building.
+#   Without .dockerignore, it would send your entire project including:
+#     - node_modules (if any)
+#     - .git history
+#     - vectorstore/ with FAISS indices (could be GBs)
+#     - .env with your secrets
+#   This slows builds and — critically — .env would be baked into the image.
+#
+# RULE: exclude anything that shouldn't be in the final image.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── CRITICAL: Never bake secrets into images ──────────────────────────────────
+.env
+*.env
+
+# ── User data (lives in Docker volumes, not in the image) ────────────────────
+vectorstore/
+data/
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Git history (not needed in the image) ─────────────────────────────────────
+.git/
+.github/
+
+# ── IDE files ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.DS_Store
+
+# ── Documentation (not needed at runtime) ─────────────────────────────────────
+README.md
+*.md
+docs/
+
+# ── Test files ────────────────────────────────────────────────────────────────
+tests/
+test_*.py
+
+# ── Other Docker files (no need to copy these into themselves) ────────────────
+Dockerfile*
+docker-compose*
+.dockerignore
